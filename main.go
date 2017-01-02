@@ -11,10 +11,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
-	//"github.com/davecgh/go-spew/spew"
+	//	"fmt"
 	rsslib "github.com/bboortz/go-rsslib"
+	//	"github.com/davecgh/go-spew/spew"
 	rss "github.com/jteeuwen/go-pkg-rss"
 	"github.com/jteeuwen/go-pkg-xmlx"
 	"github.com/nu7hatch/gouuid"
@@ -22,22 +24,60 @@ import (
 )
 
 var cacheTimeout int = 5
+var postItemWorkerInstances int = 10
 var log = logging.MustGetLogger("rss-fetch")
+var newitemsChan = make(chan rsslib.RssItem, 100)
 
 func main() {
-	// This sets up a new feed and polls it for new channels/items.
-	// Invoking it with 'go PollFeed(...)' to have the polling performed in a
-	// separate goroutine, so we can poll mutiple feeds.
-	//go PollFeed("http://blog.case.edu/news/feed.atom", 5, nil)
+	wg := new(sync.WaitGroup)
 
-	// Poll with a custom charset reader. This is to avoid the following error:
-	// ... xml: encoding "ISO-8859-1" declared but Decoder.CharsetReader is nil.
-	//PollFeed("https://status.rackspace.com/index/rss", 5, charsetReader)
+	// array of feeds
+	feedArr := [...]string{
+		"https://www.heise.de/newsticker/heise-top-atom.xml",
+		"http://www.spiegel.de/schlagzeilen/tops/index.rss",
+		"http://www.faz.net/rss/aktuell/",
+		"http://www.welt.de/?service=Rss",
+	}
 
-	go PollFeed("https://www.heise.de/newsticker/heise-top-atom.xml", cacheTimeout, nil)
-	go PollFeed("http://www.spiegel.de/schlagzeilen/tops/index.rss", cacheTimeout, nil)
-	go PollFeed("http://www.faz.net/rss/aktuell/", cacheTimeout, nil)
-	PollFeed("http://www.welt.de/?service=Rss", cacheTimeout, nil)
+	// goroutines for polling feeds
+	for _, s := range feedArr {
+		wg.Add(1)
+		go PollFeed(s, cacheTimeout, nil)
+	}
+
+	// goroutines for posting items
+	for i := 0; i < postItemWorkerInstances; i++ {
+		wg.Add(1)
+		go postItemWorker(newitemsChan, wg)
+	}
+
+	wg.Wait()
+	close(newitemsChan)
+}
+
+func postItemWorker(localChan chan rsslib.RssItem, wg *sync.WaitGroup) {
+	// Decreasing internal counter for wait-group as soon as goroutine finishes
+	defer wg.Done()
+	//log.Infof("%s\tpostworker started: %s: %d\n", log.Module, localChan, len(localChan))
+	for i := range localChan {
+		//	time.Sleep(1 * time.Second)
+		//fmt.Printf("Done processing link #%s\n", i.Uuid)
+		requestJson, _ := json.Marshal(i)
+		requestBody := string(requestJson)
+		req, err := http.NewRequest("PUT", "http://localhost:9090/item", strings.NewReader(requestBody))
+		if err != nil {
+			panic(err)
+		}
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		//spew.Dump(localChan)
+	}
+	//log.Infof("%s\tpostworker done: %s: %d\n", log.Module, localChan, len(localChan))
 }
 
 func PollFeed(uri string, timeout int, cr xmlx.CharsetFunc) {
@@ -66,7 +106,6 @@ func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*r
 	log.Infof("%s\tnew items in %s: %d\n", log.Module, feed.Url, len(newitems))
 
 	var val *rss.Item
-
 	for _, val = range newitems {
 		var uuidString string
 		var rssitem rsslib.RssItem = rsslib.RssItem{}
@@ -86,7 +125,6 @@ func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*r
 		} else {
 			panic("Cannot generate UUID")
 		}
-
 		u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(uuidString))
 		if err != nil {
 			log.Errorf("%s\tERROR: %s - %s\n", log.Module, feed.Url, err)
@@ -94,20 +132,7 @@ func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*r
 		}
 		rssitem.Uuid = u5.String()
 
-		requestJson, _ := json.Marshal(rssitem)
-		requestBody := string(requestJson)
-		req, err := http.NewRequest("PUT", "http://localhost:9090/item", strings.NewReader(requestBody))
-		if err != nil {
-			panic(err)
-		}
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
-
+		newitemsChan <- rssitem
 	}
 
 }
