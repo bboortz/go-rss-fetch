@@ -9,20 +9,20 @@ Build & run with:
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	rss "github.com/jteeuwen/go-pkg-rss"
 	"github.com/jteeuwen/go-pkg-xmlx"
 	"github.com/nu7hatch/gouuid"
+	"github.com/op/go-logging"
 	"rsslib"
 )
+
+var cacheTimeout int = 5
+var log = logging.MustGetLogger("rss-fetch")
 
 func main() {
 	// This sets up a new feed and polls it for new channels/items.
@@ -34,33 +34,37 @@ func main() {
 	// ... xml: encoding "ISO-8859-1" declared but Decoder.CharsetReader is nil.
 	//PollFeed("https://status.rackspace.com/index/rss", 5, charsetReader)
 
-	go PollFeed("https://www.heise.de/newsticker/heise-top-atom.xml", 5, nil)
-	go PollFeed("http://www.spiegel.de/schlagzeilen/tops/index.rss", 5, nil)
-	go PollFeed("http://www.faz.net/rss/aktuell/", 5, nil)
-	PollFeed("http://www.welt.de/?service=Rss", 5, nil)
+	go PollFeed("https://www.heise.de/newsticker/heise-top-atom.xml", cacheTimeout, nil)
+	go PollFeed("http://www.spiegel.de/schlagzeilen/tops/index.rss", cacheTimeout, nil)
+	go PollFeed("http://www.faz.net/rss/aktuell/", cacheTimeout, nil)
+	PollFeed("http://www.welt.de/?service=Rss", cacheTimeout, nil)
 }
 
 func PollFeed(uri string, timeout int, cr xmlx.CharsetFunc) {
-	feed := rss.New(timeout, true, chanHandler, itemHandler)
+	handlers := &MyHandlers{}
+	feed := rss.NewWithHandlers(timeout, true, handlers, handlers)
+	//	feed := rss.New(timeout, true, chanHandler, itemHandler)
 
 	for {
+		log.Infof("%s\tfeed processing: %s\n", log.Module, uri)
 		if err := feed.Fetch(uri, cr); err != nil {
-			fmt.Fprintf(os.Stderr, "[e] %s: %s\n", uri, err)
+			log.Errorf("%s\tERROR: %s - %s\n", log.Module, uri, err)
 			return
 		}
 
-		<-time.After(time.Duration(feed.SecondsTillUpdate() * 1e9))
+		<-time.After(time.Duration(60 * time.Second))
 	}
 }
 
-func chanHandler(feed *rss.Feed, newchannels []*rss.Channel) {
-	fmt.Printf("%d new channel(s) in %s\n", len(newchannels), feed.Url)
-	//	spew.Dump(newchannels)
+type MyHandlers struct{}
+
+func (m *MyHandlers) ProcessChannels(feed *rss.Feed, newchannels []*rss.Channel) {
+	log.Infof("%s\tnew channels in %s: %d\n", log.Module, feed.Url, len(newchannels))
 }
 
-func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item) {
-	fmt.Printf("%d new item(s) in %s\n", len(newitems), feed.Url)
-	//	spew.Dump(newitems[0])
+func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item) {
+	log.Infof("%s\tnew items in %s: %d\n", log.Module, feed.Url, len(newitems))
+
 	var val *rss.Item
 
 	for _, val = range newitems {
@@ -85,12 +89,10 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item) {
 
 		u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(uuidString))
 		if err != nil {
-			fmt.Println("error:", err)
+			log.Errorf("%s\tERROR: %s - %s\n", log.Module, feed.Url, err)
 			return
 		}
 		rssitem.Uuid = u5.String()
-
-		spew.Dump(rssitem)
 
 		requestJson, _ := json.Marshal(rssitem)
 		requestBody := string(requestJson)
@@ -106,17 +108,6 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item) {
 		}
 		defer resp.Body.Close()
 
-		//		spew.Dump(resp)
-		//		fmt.Println(err)
-
-		//		spew.Dump(rssitem)
 	}
 
-}
-
-func charsetReader(charset string, r io.Reader) (io.Reader, error) {
-	if charset == "ISO-8859-1" || charset == "iso-8859-1" {
-		return r, nil
-	}
-	return nil, errors.New("Unsupported character set encoding: " + charset)
 }
