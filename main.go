@@ -14,11 +14,11 @@ import (
 	"time"
 
 	//"github.com/davecgh/go-spew/spew"
+	rsslib "github.com/bboortz/go-rsslib"
 	rss "github.com/jteeuwen/go-pkg-rss"
 	"github.com/jteeuwen/go-pkg-xmlx"
 	"github.com/nu7hatch/gouuid"
 	"github.com/op/go-logging"
-	"rsslib"
 )
 
 var cacheTimeout int = 5
