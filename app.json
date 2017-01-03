@@ -1,0 +1,14 @@
+{
+  "name": "go-rss-fetch",
+  "description": "A rss fetcher written in go",
+  "keywords": [
+    "go",
+    "golang",
+    "rss",
+    "cache"
+  ],
+  "image": "heroku/go:1.6",
+  "mount_dir": "src/github.com/bboortz/go-rss-fetch",
+  "website": "http://github.com/boortz/go-rss-fetch",
+  "repository": "http://github.com/boortz/go-rss-fetch"
+}
