@@ -9,6 +9,8 @@ Build & run with:
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,14 +18,14 @@ import (
 
 	//	"fmt"
 	rsslib "github.com/bboortz/go-rsslib"
-	//	"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	rss "github.com/jteeuwen/go-pkg-rss"
 	"github.com/jteeuwen/go-pkg-xmlx"
 	"github.com/nu7hatch/gouuid"
 	"github.com/op/go-logging"
 )
 
-var cacheTimeout int = 5
+var cacheTimeout int = 30
 var postItemWorkerInstances int = 10
 var log = logging.MustGetLogger("rss-fetch")
 var newitemsChan = make(chan rsslib.RssItem, 100)
@@ -33,16 +35,26 @@ func main() {
 
 	// array of feeds
 	feedArr := [...]string{
+		"https://blog.fefe.de/rss.xml",
 		"https://www.heise.de/newsticker/heise-top-atom.xml",
 		"http://www.spiegel.de/schlagzeilen/tops/index.rss",
 		"http://www.faz.net/rss/aktuell/",
 		"http://www.welt.de/?service=Rss",
+		"http://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+		"http://rss.golem.de/rss.php?feed=ATOM1.0",
+		"http://rss.slashdot.org/Slashdot/slashdotatom",
+		"http://newsfeed.zeit.de/index",
+		"http://rss.sueddeutsche.de/rss/Digital",
+		"http://feeds.reuters.com/reuters/topNews",
+		"http://www.tagesschau.de/xml/rss2",
+		//"https://news.ycombinator.com/rss",
+		//"http://www.infoworld.com/news/index.rss",
 	}
 
 	// goroutines for polling feeds
 	for _, s := range feedArr {
 		wg.Add(1)
-		go PollFeed(s, cacheTimeout, nil)
+		go PollFeed(s, cacheTimeout, charsetReader)
 	}
 
 	// goroutines for posting items
@@ -74,8 +86,7 @@ func postItemWorker(localChan chan rsslib.RssItem, wg *sync.WaitGroup) {
 		if err != nil {
 			panic(err)
 		}
-		defer resp.Body.Close()
-		//spew.Dump(localChan)
+		resp.Body.Close()
 	}
 	//log.Infof("%s\tpostworker done: %s: %d\n", log.Module, localChan, len(localChan))
 }
@@ -92,7 +103,7 @@ func PollFeed(uri string, timeout int, cr xmlx.CharsetFunc) {
 			return
 		}
 
-		<-time.After(time.Duration(60 * time.Second))
+		<-time.After(time.Duration(10 * 60 * time.Second))
 	}
 }
 
@@ -123,7 +134,8 @@ func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*r
 		} else if val.Id != "" {
 			uuidString = val.Id
 		} else {
-			panic("Cannot generate UUID")
+			spew.Dump(val)
+			panic("Cannot generate UUID: no Id or Guid found.")
 		}
 		u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(uuidString))
 		if err != nil {
@@ -135,4 +147,11 @@ func (m *MyHandlers) ProcessItems(feed *rss.Feed, ch *rss.Channel, newitems []*r
 		newitemsChan <- rssitem
 	}
 
+}
+
+func charsetReader(charset string, r io.Reader) (io.Reader, error) {
+	if charset == "ISO-8859-1" || charset == "iso-8859-1" {
+		return r, nil
+	}
+	return nil, errors.New("Unsupported character set encoding: " + charset)
 }
