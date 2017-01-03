@@ -1,1 +1,1 @@
-worker: go-rss-fetch
+web: go-rss-fetch
