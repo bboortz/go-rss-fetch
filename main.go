@@ -76,7 +76,7 @@ func postItemWorker(localChan chan rsslib.RssItem, wg *sync.WaitGroup) {
 		//fmt.Printf("Done processing link #%s\n", i.Uuid)
 		requestJson, _ := json.Marshal(i)
 		requestBody := string(requestJson)
-		req, err := http.NewRequest("PUT", "https://go-rss-cache.herokuapp.com/item", strings.NewReader(requestBody))
+		req, err := http.NewRequest("PUT", "http://go-rss-cache.herokuapp.com/item", strings.NewReader(requestBody))
 		//		req, err := http.NewRequest("PUT", "http://localhost:9090/item", strings.NewReader(requestBody))
 		if err != nil {
 			panic(err)
