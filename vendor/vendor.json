@@ -1,0 +1,43 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "nPICR47WdB44QBCicoBo47Q+b6E=",
+			"path": "github.com/bboortz/go-rsslib",
+			"revision": "221120e07c696298dea67affe3ce4bc78a8f0189",
+			"revisionTime": "2017-01-04T10:51:32Z"
+		},
+		{
+			"checksumSHA1": "dvabztWVQX8f6oMLRyv4dLH+TGY=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "346938d642f2ec3594ed81d874461961cd0faa76",
+			"revisionTime": "2016-10-29T20:57:26Z"
+		},
+		{
+			"checksumSHA1": "0BML3eN8Nu7aMthd0H6Ze9WwNcs=",
+			"path": "github.com/jteeuwen/go-pkg-rss",
+			"revision": "72391e6fd7384785fa3c46a405214a616d6c4a1d",
+			"revisionTime": "2015-12-01T01:30:05Z"
+		},
+		{
+			"checksumSHA1": "XFra3ZlOkhp/C8FUxTuQnkitKI8=",
+			"path": "github.com/jteeuwen/go-pkg-xmlx",
+			"revision": "76f54ee73233b171ca9ee82ef837a1fc4d3809c0",
+			"revisionTime": "2015-12-01T01:29:46Z"
+		},
+		{
+			"checksumSHA1": "gcLub3oB+u4QrOJZcYmk/y2AP4k=",
+			"path": "github.com/nu7hatch/gouuid",
+			"revision": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3",
+			"revisionTime": "2013-12-21T20:05:32Z"
+		},
+		{
+			"checksumSHA1": "BoXdUBWB8UnSlFlbnuTQaPqfCGk=",
+			"path": "github.com/op/go-logging",
+			"revision": "970db520ece77730c7e4724c61121037378659d9",
+			"revisionTime": "2016-03-15T20:05:05Z"
+		}
+	],
+	"rootPath": "github.com/bboortz/go-rss-fetch"
+}
